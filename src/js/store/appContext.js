@@ -1,48 +1,65 @@
 import React, { useState, useEffect } from "react";
 import getState from "./flux.js";
 
-// Don't change, here is where we initialize our context, by default it's just going to be null.
 export const Context = React.createContext(null);
 
-// This function injects the global store to any view/component where you want to use it, we will inject the context to layout.js, you can see it here:
-// https://github.com/4GeeksAcademy/react-hello-webapp/blob/master/src/js/layout.js#L35
 const injectContext = PassedComponent => {
-	const StoreWrapper = props => {
-		//this will be passed as the contenxt value
-		const [state, setState] = useState(
-			getState({
-				getStore: () => state.store,
-				getActions: () => state.actions,
-				setStore: updatedStore =>
-					setState({
-						store: Object.assign(state.store, updatedStore),
-						actions: { ...state.actions }
-					})
-			})
-		);
+    const StoreWrapper = props => {
+        const [state, setState] = useState(
+            getState({
+                getStore: () => state.store,
+                getActions: () => state.actions,
+                setStore: updatedStore =>
+                    setState({
+                        store: { ...state.store, ...updatedStore },
+                        actions: state.actions // Mantén las actions originales
+                    })
+            })
+        );
 
-		useEffect(() => {
-			/**
-			 * EDIT THIS!
-			 * This function is the equivalent to "window.onLoad", it only runs once on the entire application lifetime
-			 * you should do your ajax requests or fetch api requests here. Do not use setState() to save data in the
-			 * store, instead use actions, like this:
-			 *
-			 * state.actions.loadSomeData(); <---- calling this function from the flux.js actions
-			 *
-			 **/
-		}, []);
+        useEffect(() => {
+            // Este useEffect se ejecuta una vez al montar el componente.
+            // Puedes usarlo para cargar datos iniciales si es necesario.
+        }, []);
 
-		// The initial value for the context is not null anymore, but the current state of this component,
-		// the context will now have a getStore, getActions and setStore functions available, because they were declared
-		// on the state of this component
-		return (
-			<Context.Provider value={state}>
-				<PassedComponent {...props} />
-			</Context.Provider>
-		);
-	};
-	return StoreWrapper;
+        // *******************************************************************
+        //  CORRECCIÓN IMPORTANTE: Las funciones addFavorite y removeFavorite
+        //  deben acceder al state usando state.store y NO store directamente.
+        // *******************************************************************
+        const addFavorite = (item) => {
+            const isDuplicate = state.store.favorites.some(fav => fav.name === item.name);
+            if (!isDuplicate) {
+                const updatedFavorites = [...state.store.favorites, item];
+                setStore({ favorites: updatedFavorites }); // Actualiza el state con setStore
+            }
+        };
+
+        const removeFavorite = (item) => {
+            const updatedFavorites = state.store.favorites.filter(fav => fav.name !== item.name);
+            setStore({ favorites: updatedFavorites }); // Actualiza el state con setStore
+        };
+
+        // *******************************************************************
+        //  CORRECCIÓN IMPORTANTE: Las funciones deben estar dentro del objeto
+        //  value para que los componentes puedan acceder a ellas.
+        // *******************************************************************
+
+        const value = {
+            store: state.store,
+            actions: { 
+                ...state.actions, // Mantén las actions originales
+                addFavorite: addFavorite,  // Incluye addFavorite
+                removeFavorite: removeFavorite // Incluye removeFavorite
+            }
+        };
+
+        return (
+            <Context.Provider value={value}>
+                <PassedComponent {...props} />
+            </Context.Provider>
+        );
+    };
+    return StoreWrapper;
 };
 
 export default injectContext;
